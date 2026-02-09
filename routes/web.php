@@ -13,12 +13,15 @@ Route::get('/dashboard', function () {
     return view('dashboard', compact('products'));
 })->middleware(['auth', 'verified'])->name('dashboard');
 
+Route::post('/xendit/callback', [PaymentController::class, 'notification']);
+
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::post('/checkout', [PaymentController::class, 'checkout'])->name('checkout');
+
 });
 
 require __DIR__.'/auth.php';

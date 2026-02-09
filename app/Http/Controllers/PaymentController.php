@@ -62,4 +62,30 @@ class PaymentController extends Controller
             return back()->with('error', 'Gagal: ' . $e->getMessage());
         }
     }
+    public function notification(Request $request) 
+    {
+        // 1. Ambil Token Callback untuk keamanan (agar orang lain tidak bisa tembak manual)
+        $callbackToken = $request->header('x-callback-token');
+
+        // 2. Verifikasi Token (Nanti kita ambil tokennya dari Dashboard Xendit)
+        if ($callbackToken !== env('XENDIT_CALLBACK_TOKEN')) {
+            return response()->json(['message' => 'Token tidak valid'], 403);
+        }
+
+        // 3. Ambil data External ID dan Status dari Xendit
+        $external_id = $request->external_id ?? ($request->data['reference_id'] ?? null);
+        $status = $request->status ?? ($request->data['status'] ?? null); // Contoh: 'PAID' atau 'SETTLED'
+
+        // 4. Cari order di database berdasarkan external_id
+        $order = \App\Models\Order::where('external_id', $external_id)->first();
+
+            if ($order) {
+            if ($status === 'PAID' || $status === 'SETTLED') {
+                $order->update(['status' => 'PAID']);
+            }
+            return response()->json(['message' => 'Status berhasil diperbarui'], 200);
+        }
+
+        return response()->json(['message' => 'Webhook diterima (Data dummy/Order tidak ada)'], 200);
+    }
 }

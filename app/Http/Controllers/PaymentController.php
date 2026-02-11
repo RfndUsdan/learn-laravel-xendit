@@ -50,6 +50,7 @@ class PaymentController extends Controller
             $paymentUrl = $result->getInvoiceUrl();
 
             Order::create([
+                'user_id'       => $user->id,
                 'product_id'    => $product->id,
                 'external_id'   => $external_id,
                 'checkout_link' => $paymentUrl,
@@ -74,18 +75,38 @@ class PaymentController extends Controller
 
         // 3. Ambil data External ID dan Status dari Xendit
         $external_id = $request->external_id ?? ($request->data['reference_id'] ?? null);
-        $status = $request->status ?? ($request->data['status'] ?? null); // Contoh: 'PAID' atau 'SETTLED'
+        $status = $request->status; // Contoh: 'PAID' atau 'SETTLED'
 
         // 4. Cari order di database berdasarkan external_id
         $order = \App\Models\Order::where('external_id', $external_id)->first();
 
             if ($order) {
-            if ($status === 'PAID' || $status === 'SETTLED') {
-                $order->update(['status' => 'PAID']);
+                if ($status === 'PAID' || $status === 'SETTLED') {
+                    $order->update(['status' => 'PAID']);
+                }
+
+                elseif ($status === 'EXPIRED') {
+                    $order->update(['status' => 'EXPIRED']);
+                }
+
+                return response()->json(['message' => 'Status berhasil diperbarui'], 200);
             }
-            return response()->json(['message' => 'Status berhasil diperbarui'], 200);
-        }
 
         return response()->json(['message' => 'Webhook diterima (Data dummy/Order tidak ada)'], 200);
+    }
+    public function index(Request $request)
+    {
+        $orders = Order::whereHas('product', function($query) {
+            // Jika kamu ingin memastikan produknya masih ada
+        })
+        ->whereIn('product_id', \App\Models\Product::pluck('id')) // Opsional: pastikan produk valid
+        ->latest()
+        ->get();
+        $orders = Order::with('product')
+            ->where('user_id', $request->user()->id)
+            ->latest()
+            ->get();
+
+        return view('orders.index', compact('orders'));
     }
 }

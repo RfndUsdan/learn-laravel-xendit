@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Xendit\Configuration;
 use Xendit\Invoice\InvoiceApi;
@@ -9,6 +10,8 @@ use Xendit\Invoice\CreateInvoiceRequest;
 use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Support\Str;
+use App\Mail\PaymentSuccessMail;
+use Illuminate\Support\Facades\Mail;
 
 class PaymentController extends Controller
 {
@@ -65,47 +68,46 @@ class PaymentController extends Controller
     }
     public function notification(Request $request) 
     {
-        // 1. Ambil Token Callback untuk keamanan (agar orang lain tidak bisa tembak manual)
         $callbackToken = $request->header('x-callback-token');
-
-        // 2. Verifikasi Token (Nanti kita ambil tokennya dari Dashboard Xendit)
         if ($callbackToken !== env('XENDIT_CALLBACK_TOKEN')) {
             return response()->json(['message' => 'Token tidak valid'], 403);
         }
 
-        // 3. Ambil data External ID dan Status dari Xendit
-        $external_id = $request->external_id ?? ($request->data['reference_id'] ?? null);
-        $status = $request->status; // Contoh: 'PAID' atau 'SETTLED'
+        // DEBUG: Catat semua data yang masuk ke storage/logs/laravel.log
+        \Illuminate\Support\Facades\Log::info('Data Webhook Xendit:', $request->all());
 
-        // 4. Cari order di database berdasarkan external_id
-        $order = \App\Models\Order::where('external_id', $external_id)->first();
+        $external_id = $request->external_id;
+        $status = $request->status;
 
-            if ($order) {
-                if ($status === 'PAID' || $status === 'SETTLED') {
-                    $order->update(['status' => 'PAID']);
+        $order = Order::where('external_id', $external_id)->first();
+
+        if ($order) {
+            if ($status === 'PAID' || $status === 'SETTLED') {
+                $order->update(['status' => 'PAID']);
+                Mail::to($order->user->email)->send(new PaymentSuccessMail($order));
+                
+                return response()->json(['message' => 'Berhasil Update & Kirim Email'], 200);
+
+                if ($order->user) {
+                    Mail::to($order->user->email)->send(new PaymentSuccessMail($order));
+                } else {
+                    \Illuminate\Support\Facades\Log::warning("Order ditemukan, tapi User tidak ada untuk External ID: " . $external_id);
                 }
+            } 
+            
+            // Jika order ada tapi statusnya bukan PAID
+            return response()->json(['message' => 'Order ditemukan tapi status bukan PAID. Status: ' . $status], 200);
+        }
 
-                elseif ($status === 'EXPIRED') {
-                    $order->update(['status' => 'EXPIRED']);
-                }
-
-                return response()->json(['message' => 'Status berhasil diperbarui'], 200);
-            }
-
-        return response()->json(['message' => 'Webhook diterima (Data dummy/Order tidak ada)'], 200);
+        // Jika order sama sekali tidak ditemukan di DB
+        return response()->json(['message' => 'Order dengan ID ' . $external_id . ' tidak ada di database'], 200);
     }
     public function index(Request $request)
     {
-        $orders = Order::whereHas('product', function($query) {
-            // Jika kamu ingin memastikan produknya masih ada
-        })
-        ->whereIn('product_id', \App\Models\Product::pluck('id')) // Opsional: pastikan produk valid
+       $orders = Order::with('product')
+        ->where('user_id', $request->user()->id)
         ->latest()
         ->get();
-        $orders = Order::with('product')
-            ->where('user_id', $request->user()->id)
-            ->latest()
-            ->get();
 
         return view('orders.index', compact('orders'));
     }

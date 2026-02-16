@@ -11,6 +11,7 @@ use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Support\Str;
 use App\Mail\PaymentSuccessMail;
+use App\Mail\PaymentFailedMail;
 use Illuminate\Support\Facades\Mail;
 
 class PaymentController extends Controller
@@ -69,38 +70,49 @@ class PaymentController extends Controller
     public function notification(Request $request) 
     {
         $callbackToken = $request->header('x-callback-token');
+        
+        // 1. Validasi Token
         if ($callbackToken !== env('XENDIT_CALLBACK_TOKEN')) {
             return response()->json(['message' => 'Token tidak valid'], 403);
         }
 
-        // DEBUG: Catat semua data yang masuk ke storage/logs/laravel.log
+        // 2. Logging untuk Debug
         \Illuminate\Support\Facades\Log::info('Data Webhook Xendit:', $request->all());
 
         $external_id = $request->external_id;
         $status = $request->status;
 
+        // 3. Cari Order
         $order = Order::where('external_id', $external_id)->first();
 
-        if ($order) {
-            if ($status === 'PAID' || $status === 'SETTLED') {
-                $order->update(['status' => 'PAID']);
-                Mail::to($order->user->email)->send(new PaymentSuccessMail($order));
-                
-                return response()->json(['message' => 'Berhasil Update & Kirim Email'], 200);
-
-                if ($order->user) {
-                    Mail::to($order->user->email)->send(new PaymentSuccessMail($order));
-                } else {
-                    \Illuminate\Support\Facades\Log::warning("Order ditemukan, tapi User tidak ada untuk External ID: " . $external_id);
-                }
-            } 
-            
-            // Jika order ada tapi statusnya bukan PAID
-            return response()->json(['message' => 'Order ditemukan tapi status bukan PAID. Status: ' . $status], 200);
+        if (!$order) {
+            return response()->json(['message' => 'Order tidak ditemukan'], 404);
         }
 
-        // Jika order sama sekali tidak ditemukan di DB
-        return response()->json(['message' => 'Order dengan ID ' . $external_id . ' tidak ada di database'], 200);
+        // 4. Proses berdasarkan Status
+        if ($status === 'PAID' || $status === 'SETTLED') {
+            $order->update(['status' => 'PAID']);
+            
+            // Kirim email hanya jika user ada
+            if ($order->user) {
+                Mail::to($order->user->email)->send(new PaymentSuccessMail($order));
+            }
+            
+            return response()->json(['message' => 'Berhasil Update PAID & Kirim Email'], 200);
+        } 
+        
+        elseif ($status === 'EXPIRED') {
+            $order->update(['status' => 'EXPIRED']);
+            
+            if ($order->user) {
+                Mail::to($order->user->email)->send(new \App\Mail\PaymentFailedMail($order));
+            }
+            
+            return response()->json(['message' => 'Berhasil Update EXPIRED & Kirim Email'], 200);
+        }
+
+        // 5. Respon jika status dikirim tapi bukan PAID atau EXPIRED
+        return response()->json(['message' => 'Webhook diterima, status: ' . $status], 200);
     }
     public function index(Request $request)
     {

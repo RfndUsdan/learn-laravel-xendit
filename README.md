@@ -1,62 +1,103 @@
-# 🚀 Laravel Xendit Payment Integration
+Laravel Xendit Payment Integration
 
-Sistem integrasi *payment gateway* menggunakan Laravel 11 dan Xendit. Project ini menangani alur transaksi lengkap secara otomatis, mulai dari pembuatan invoice hingga pengiriman notifikasi email berdasarkan status pembayaran.
+Sistem integrasi payment gateway menggunakan Laravel 11 dan Xendit.
+Project ini menangani alur transaksi lengkap secara otomatis, mulai dari pembuatan invoice, webhook callback, hingga notifikasi email berdasarkan status pembayaran.
 
----
+✨ Fitur Utama
 
-## ✨ Fitur Utama
+🛒 Checkout System: Terhubung langsung dengan API Invoice Xendit untuk pembuatan tagihan.
 
-* **🛒 Checkout System**: Terhubung langsung dengan Xendit Invoice API untuk pembuatan tagihan.
-* **📡 Automated Webhooks**: Menangani callback dari Xendit untuk sinkronisasi status pembayaran secara real-time.
-* **📧 Email Notifications**: 
-    * **Success Mail**: Dikirim otomatis saat pembayaran berhasil (`PAID`).
-    * **Failed/Expired Mail**: Dikirim otomatis jika batas waktu pembayaran habis (`EXPIRED`).
-* **🔐 Callback Security**: Menggunakan verifikasi *Callback Token* untuk memastikan data hanya berasal dari server resmi Xendit.
-* **👥 User-Order Mapping**: Pesanan terhubung otomatis dengan akun user yang sedang login.
-* **📋 Order History**: Halaman riwayat pesanan yang terfilter (User hanya bisa melihat pesanan miliknya sendiri).
+🔁 Automated Webhooks: Menangani callback dari Xendit untuk sinkronisasi status pembayaran secara real-time.
 
----
+📧 Email Notifications:
 
-## 🛠️ Tech Stack
+Notifikasi email saat pembayaran berhasil (PAID).
 
-* **Framework**: [Laravel 11](https://laravel.com)
-* **Payment Gateway**: [Xendit SDK](https://github.com/xendit/xendit-php)
-* **Environment**: Laragon
-* **Testing Tools**: 
-    * **Ngrok**: Untuk mengekspos localhost agar bisa menerima Webhook.
-    * **Mailpit/Mailcatcher**: Untuk menangkap dan mengetes pengiriman email di lokal.
-    * **Postman**: Untuk simulasi webhook testing.
+Notifikasi email saat pembayaran gagal/habis waktu (EXPIRED).
 
----
+🔐 Keamanan Callback: Verifikasi callback token untuk memastikan data berasal dari server Xendit.
 
-## ⚙️ Instalasi
+👤 Order Terhubung dengan User: Pesanan otomatis terhubung dengan akun user yang sedang login.
 
-### 1. Clone Project
-```bash
-git clone [https://github.com/username/laravel-xendit.git](https://github.com/username/laravel-xendit.git)
-cd laravel-xendit
+📜 Riwayat Pesanan: Halaman riwayat pesanan yang terfilter (user hanya bisa melihat miliknya).
 
-### 2. Install Dependencies
+🛠️ Tech Stack
 
+Framework: Laravel 11
+
+Payment Gateway: Xendit SDK
+
+Tools (Dev): Ngrok, Mailpit/Mailcatcher, Postman
+
+⚙️ Instalasi
+1. Clone Project
+git clone https://github.com/RfndUsdan/learn-laravel-xendit.git
+cd learn-laravel-xendit
+
+2. Install Dependencies
 composer install
 npm install && npm run dev
 
-### 3. Konfigurasi Database & Environment
+3. Konfigurasi .env
 
-# Xendit Configuration
+Salin konfigurasi dari file contoh:
+
+cp .env.example .env
+
+
+Lalu atur variabel penting seperti:
+
+APP_NAME=Laravel
+APP_ENV=local
+APP_KEY=base64:...
+APP_DEBUG=true
+APP_URL=http://localhost
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=nama_database
+DB_USERNAME=user_db
+DB_PASSWORD=password_db
+
+# Xendit
 XENDIT_SECRET_KEY=xnd_development_...
-XENDIT_CALLBACK_TOKEN=your_callback_token_from_xendit_dashboard
+XENDIT_CALLBACK_TOKEN=token_callback
 
-# Mail Configuration (Laragon/Mailpit)
+# Mail (opsional)
 MAIL_MAILER=smtp
 MAIL_HOST=127.0.0.1
 MAIL_PORT=1025
-MAIL_USERNAME=null
-MAIL_PASSWORD=null
 
-### 4. Migrasi Database
-
+4. Migrasi Database
 php artisan migrate
 
+5. Jalankan Aplikasi
+php artisan serve
 
-Cara Mengetes Webhook (Local)
+📦 Cara Kerja Webhook (Local)
+
+Untuk menerima webhook dari Xendit saat pengembangan lokal, Anda bisa memakai Ngrok.
+
+ngrok http 8000
+
+
+Lalu gunakan URL https://...ngrok.io/payment/callback sebagai webhook di dashboard Xendit.
+
+📍 Struktur Fitur (Opsional)
+
+Repositori ini umumnya memiliki struktur kode Laravel standar (routes, controllers, models, migrations) yang menangani:
+
+Pembuatan order & invoice
+
+Callback webhook
+
+Pengiriman email berdasarkan status pembayaran
+
+🧪 Testing
+
+Gunakan Postman atau tool lainnya untuk mengetes alur pembayaran dan webhook.
+
+📚 Referensi
+
+Xendit API docs – panduan penggunaan fitur payment gateway Xendit (Invoice, Callback
